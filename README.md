@@ -1,184 +1,263 @@
-English | [简体中文](./README-zh_CN.md)
+# TikTok VM Reverse Engineering (webmssdk.js)
 
-# G
+This project is for reverse engineering the TikTok Virtual Machine (VM). 
 
-![CI](https://github.com/antvis/g/workflows/CI/badge.svg) [![Coverage Status](https://coveralls.io/repos/github/antvis/g/badge.svg?branch=next)](https://coveralls.io/github/antvis/g?branch=next) [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](#badge)
+## Overview
 
-![TypeScript](https://img.shields.io/badge/language-typescript-blue.svg) ![License](https://img.shields.io/badge/license-MIT-000000.svg)
+TikTok uses a custom virtual machine (VM) as part of its obfuscation and security layers. This project includes tools to:
 
-[![npm package](https://img.shields.io/npm/v/@antv/g)](https://www.npmjs.com/package/@antv/g) [![npm downloads](http://img.shields.io/npm/dm/@antv/g)](https://www.npmjs.com/package/@antv/g) [![Percentage of issues still open](http://isitmaintained.com/badge/open/antvis/g.svg)](http://isitmaintained.com/project/antvis/g 'Percentage of issues still open') [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=shields)](https://github.com/antvis/g/pulls)
+- **Deobfuscate** `webmssdk.js` that has the virtual machine.
+- **Decompile** TikTok’s virtual machine instructions into readable form.
+- **Script Inject** Replace webmssdk.js with the deobfuscated VM [injector](./injector.js).
+- **Sign URLs** Generate signed URLs which can be used to perform auth-based requests eg. Post comments.
 
-As the underlying rendering engine of AntV, G is dedicated to provide consistent and high performance 2D / 3D graphics rendering capabilities for upper layer products, adapting all underlying rendering APIs (Canvas2D / SVG / WebGL / WebGPU / CanvasKit / Node.js) on the web side. In particular, it provides GPGPU support for algorithms suitable for parallel computing in graph scenarios.
+---
 
-<p>
-  <a href="https://g.antv.antgroup.com/examples/ecosystem/d3/#d3-force-directed-graph"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*PovRRJtsBMIAAAAAAAAAAAAAARQnAQ" alt="D3 force directed graph"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/ecosystem/d3/#d3-barchart"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*h6vDS6eRVFoAAAAAAAAAAAAAARQnAQ" alt="D3 barchart"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/plugins/rough/#rough-d3-barchart"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*aJaFSrYOLXMAAAAAAAAAAAAAARQnAQ" alt="D3 sketchy barchart"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/plugins/yoga/#yoga-text"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*IH1fSJN9fsMAAAAAAAAAAAAAARQnAQ" alt="Yoga plugin"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/plugins/physics-engine/#box2d"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*Qw5OQLGQy_4AAAAAAAAAAAAAARQnAQ" alt="Box2D physics engine plugin"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/plugins/rough/#rough"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*d4iiS5_3YVIAAAAAAAAAAAAAARQnAQ" alt="Rough.js plugin"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/plugins/canvaskit/#skottie"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*_usaTqSm6vYAAAAAAAAAAAAAARQnAQ" alt="Canvaskit plugin"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/plugins/canvaskit/#canvaskit-particles"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*919sR5Oxx_kAAAAAAAAAAAAAARQnAQ" alt="Yoga plugin"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/3d/geometry/#sphere"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*bsj2S4upLBgAAAAAAAAAAAAAARQnAQ" alt="Canvaskit plugin"/></a>
-<a href="https://g.antv.antgroup.com/zh/examples/3d/3d-basic/#force-3d"><img height="160" src="https://gw.alipayobjects.com/mdn/rms_6ae20b/afts/img/A*3XFxQKWOeKoAAAAAAAAAAAAAARQnAQ" alt="3D force directed graph"/></a>
-</p>
+## Deobfuscating
 
-## ✨ Features
+When looking at [webmssdk.js](./deobfVersions/raw.js) you're met with a
+heavily obfuscated file. The main method of obfuscating Javascript
+is to take advantage of bracket notation which let's you index a variable
+using another variable.
 
-**Easy-to-use API**。The graphics and event system is compatible with DOM Element & Event API, and the animation system is compatible with Web Animations API, which can be adapted to the existing ecosystem of Web side such as D3, Hammer.js gesture library, etc. at a very low cost.
-
-**Support multiple rendering environments**。Support Canvas2D / SVG / WebGL / WebGPU / CanvasKit and runtime switching, and also server-side rendering.
-
-**High performance rendering and computing**。WebGPU-based GPGPU support for parallelizable algorithms. [webgpu-graph](https://g-next.antv.vision/en/docs/api/gpgpu/webgpu-graph) is a library of graph analysis algorithms using GPU acceleration.
-
-Extensible plug-in mechanism and rich set of plug-ins：
-
-- Rendering Related
-  - [g-plugin-canvas-renderer](https://g-next.antv.vision/en/docs/plugins/canvas-renderer) Rendering 2D graphics based on Canvas2D.
-  - [g-plugin-svg-renderer](https://g-next.antv.vision/en/docs/plugins/svg-renderer) Rendering 2D graphics based on SVG.
-  - [g-plugin-device-renderer](https://g-next.antv.vision/en/docs/plugins/device-renderer) Rendering 2D graphics based on GPUDevice.
-  - [g-plugin-html-renderer](https://g-next.antv.vision/en/docs/plugins/html-renderer) Rendering DOM with HTML.
-  - [g-plugin-3d](https://g-next.antv.vision/en/docs/plugins/3d) Extended 3D capabilities.
-  - [g-plugin-rough-canvas-renderer](https://g-next.antv.vision/en/docs/plugins/rough-canvas-renderer) Perform hand-drawn style rendering with [rough.js](https://roughjs.com/) and Canvs2D.
-  - [g-plugin-rough-svg-renderer](https://g-next.antv.vision/en/docs/plugins/rough-svg-renderer) Perform hand-drawn style rendering with [rough.js](https://roughjs.com/) and SVG.
-  - [g-plugin-canvaskit-renderer](https://g-next.antv.vision/en/docs/plugins/canvaskit-renderer) Rendering 2D graphics based on [Skia](https://skia.org/docs/user/modules/quickstart).
-- Picking
-  - [g-plugin-canvas-picker](https://g-next.antv.vision/en/docs/plugins/canvas-picker) Do picking with Canvas2D and mathematical calculations.
-  - [g-plugin-svg-picker](https://g-next.antv.vision/en/docs/plugins/svg-picker) Do picking with SVG and DOM API.
-- Interaction
-  - [g-plugin-dom-interaction](https://g-next.antv.vision/en/docs/plugins/dom-interaction) Binds event listeners with DOM API.
-  - [g-plugin-control](https://g-next.antv.vision/en/docs/plugins/control) Provides camera interaction for 3D scenes.
-  - [g-plugin-dragndrop](https://g-next.antv.vision/en/docs/plugins/dragndrop) Provides Drag 'n' Drop based on PointerEvents.
-- Physics Engine
-  - [g-plugin-box2d](https://g-next.antv.vision/en/docs/plugins/box2d) Based on [Box2D](https://box2d.org/).
-  - [g-plugin-matterjs](https://g-next.antv.vision/en/docs/plugins/matterjs) Based on [matter.js](https://brm.io/matter-js/).
-  - [g-plugin-physx](https://g-next.antv.vision/en/docs/plugins/physx) Based on [PhysX](https://developer.nvidia.com/physx-sdk).
-- Layout Engine
-  - [g-plugin-yoga](https://g-next.antv.vision/en/docs/plugins/yoga) Provides Flex layout capabilities based on Yoga.
-- GPGPU
-  - [g-plugin-gpgpu](https://g-next.antv.vision/en/docs/plugins/gpgpu) Provides GPGPU capabilities based on WebGPU.
-- CSS Selector
-  - [g-plugin-css-select](https://g-next.antv.vision/en/docs/plugins/css-select) Supports for retrieval in the scene graph using CSS selectors.
-- A11y
-  - [g-plugin-a11y](https://g-next.antv.vision/en/docs/plugins/a11y) Provides accessibility features.
-
-## 📦 Install
-
-```bash
-# Install Core
-$ npm install @antv/g --save
-# Canvas Renderer
-$ npm install @antv/g-canvas --save
-# SVG Renderer
-$ npm install @antv/g-svg --save
-# WebGL Renderer
-$ npm install @antv/g-webgl --save
-```
-
-## 🔨 Usage
-
-```html
-<div id="container"></div>
-```
+So when you see something like this:
 
 ```js
-import { Circle, Canvas, CanvasEvent } from '@antv/g';
-import { Renderer as CanvasRenderer } from '@antv/g-canvas';
-// or
-// import { Renderer as WebGLRenderer } from '@antv/g-webgl';
-// import { Renderer as SVGRenderer } from '@antv/g-svg';
+// Line 3391 of ./deobfVersions/raw.js
+r[Gb[301]](Gb[57], e))
+```
 
-// create a canvas
-const canvas = new Canvas({
-    container: 'container',
-    width: 500,
-    height: 500,
-    renderer: new CanvasRenderer(), // select a renderer
-});
+You have absolutely no idea what it's indexing.
 
-// create a circle
-const circle = new Circle({
-    style: {
-        cx: 100,
-        cy: 100,
-        r: 50,
-        fill: 'red',
-        stroke: 'blue',
-        lineWidth: 5,
-    },
-});
+Each use of this method is using an array `Gb` defined as
 
-canvas.addEventListener(CanvasEvent.READY, function () {
-    // append to canvas
-    canvas.appendChild(circle);
-
-    // add listener for `click` event
-    circle.addEventListener('click', function () {
-        this.style.fill = 'green';
+```js
+    var Gb = ["ydTGHdFNV", "sNxpGNHMrpLV", "xyrNMLEN Fpp rpMu", "ydWyNe", ...].map(function(a) {
+        return a.split("").map(function(c) {
+            return "LsfVNxutyOcrEMpYAGdFHneaUKRXSgoJDbhqICzPZklivTmWBwQj".indexOf(c) == -1 ? c : "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"["LsfVNxutyOcrEMpYAGdFHneaUKRXSgoJDbhqICzPZklivTmWBwQj".indexOf(c)]
+        }).join("")
     });
-});
 ```
 
-## ⌨️ Development
+As you can see we can't even read this either as it's all encoded 
+using this string `"LsfVNxutyOcrEMpYAGdFHneaUKRXSgoJDbhqICzPZklivTmWBwQj"`.
 
-Start previewing demos:
+Because this code get's executed immediately we can simply take this snippet
+and run it in any console and retrieve:
 
-```bash
-git clone git@github.com:antvis/g.git
-cd g
-pnpm install
-pnpm build
-pnpm dev
+```js
+[
+    "isTrusted",
+    "beforeunload",
+    "filename too long",
+    "isView",
+    ...
+]
 ```
 
-### API Spec
+We can now see each of these strings, therefore we can use RegEx to go through
+the script and replace all uses of the array as seen [here](./deobfuscation/changeNotation.js#L322)
+It will also convert the bracket notation back to readable dot notation.
 
-Start a dev-server on root dir, eg. `http-server`:
+After that we've left with [webmssdk1](./deobfVersions/ems1.js).
 
-```bash
-http-server -p 9090
+The example from above now looks like this
+```js
+r.addEventListener("abort", e),
 ```
 
-Open api.html on `localhost:9090/spec/api.html`.
+Much better.
 
-### Run test cases
+Another significant obfuscation method used is for disguising function calls.
 
-Build and run test cases:
+Each function is defined in an array `Ab`.
 
-```bash
-pnpm build
-pnpm test
+```js
+  var Ab = [function(e) {
+      return "[object Array]" === Object.prototype.toString.call(e)
+  }
+  , function(e) {
+      return e && e.__esModule && Object.prototype.hasOwnProperty.call(e, "default") ? e.default : e
+  }
+  , function() {
+      var Ga;
+      Ga = [0, 1],
+      (je = !Ga[0],
+      le && (setTimeout(function() {
+          document.dispatchEvent(new Event(pe))
+      }, Ga[1]),
+      document.removeEventListener("DOMContentLoaded", Ab[40]),
+      document.removeEventListener("readystatechange", Ab[75])))
+  }
+  ...]
 ```
 
-### Run demos
+And it used by calling `Ab[index](args)` like:
 
-Preview our dev demos:
-
-```bash
-pnpm build
-pnpm dev
+```js
+Ab[31](f[e], t, n, i)
 ```
 
-## Inspired by
+When using common IDE's if we click on this function it will just bring us to
+the start of the array making it difficult to keep track of what function call
+is calling what function.
 
-- [Sprite.js](https://github.com/spritejs/spritejs)
-- [Pixi.js](https://pixijs.com/)
-- [PlayCanvas](https://playcanvas.com/)
-- [WebKit](https://github.com/WebKit/WebKit/blob/main/Source/WebCore)
+We can make this readable by:
 
-<!-- GITCONTRIBUTOR_START -->
+- Taking the array
+- Replace each of the function element with it's own standard function calling it `function Abindex(args)`
+- Replace each call to `Ab[index](args)` with `Abindex(args)`
 
-## Contributors
+We can do this by using the AST form of the script via bapel as seen [here](./deobfuscation/bapel.js#L55)
 
-| [<img src="https://avatars.githubusercontent.com/u/14918822?v=4" width="100px;"/><br/><sub><b>dengfuping</b></sub>](https://github.com/dengfuping)<br/> | [<img src="https://avatars.githubusercontent.com/u/3608471?v=4" width="100px;"/><br/><sub><b>xiaoiver</b></sub>](https://github.com/xiaoiver)<br/> | [<img src="https://avatars.githubusercontent.com/u/1264678?v=4" width="100px;"/><br/><sub><b>dxq613</b></sub>](https://github.com/dxq613)<br/> | [<img src="https://avatars.githubusercontent.com/in/2141?v=4" width="100px;"/><br/><sub><b>dependabot-preview[bot]</b></sub>](https://github.com/apps/dependabot-preview)<br/> | [<img src="https://avatars.githubusercontent.com/u/4224253?v=4" width="100px;"/><br/><sub><b>zhanba</b></sub>](https://github.com/zhanba)<br/> | [<img src="https://avatars.githubusercontent.com/u/507615?v=4" width="100px;"/><br/><sub><b>afc163</b></sub>](https://github.com/afc163)<br/> |
-| :-: | :-: | :-: | :-: | :-: | :-: |
-| [<img src="https://avatars.githubusercontent.com/u/1947344?v=4" width="100px;"/><br/><sub><b>limichange</b></sub>](https://github.com/limichange)<br/> | [<img src="https://avatars.githubusercontent.com/u/23075527?v=4" width="100px;"/><br/><sub><b>entronad</b></sub>](https://github.com/entronad)<br/> | [<img src="https://avatars.githubusercontent.com/u/7856674?v=4" width="100px;"/><br/><sub><b>hustcc</b></sub>](https://github.com/hustcc)<br/> | [<img src="https://avatars.githubusercontent.com/u/33517362?v=4" width="100px;"/><br/><sub><b>tangying1027</b></sub>](https://github.com/tangying1027)<br/> | [<img src="https://avatars.githubusercontent.com/u/1478197?v=4" width="100px;"/><br/><sub><b>zengyue</b></sub>](https://github.com/zengyue)<br/> | [<img src="https://avatars.githubusercontent.com/u/6628666?v=4" width="100px;"/><br/><sub><b>simaQ</b></sub>](https://github.com/simaQ)<br/> |
-| [<img src="https://avatars.githubusercontent.com/u/1142242?v=4" width="100px;"/><br/><sub><b>lessmost</b></sub>](https://github.com/lessmost)<br/> | [<img src="https://avatars.githubusercontent.com/u/15646325?v=4" width="100px;"/><br/><sub><b>visiky</b></sub>](https://github.com/visiky)<br/> | [<img src="https://avatars.githubusercontent.com/u/31396322?v=4" width="100px;"/><br/><sub><b>lxfu1</b></sub>](https://github.com/lxfu1)<br/> | [<img src="https://avatars.githubusercontent.com/u/7451866?v=4" width="100px;"/><br/><sub><b>ICMI</b></sub>](https://github.com/ICMI)<br/> | [<img src="https://avatars.githubusercontent.com/u/19731097?v=4" width="100px;"/><br/><sub><b>Deturium</b></sub>](https://github.com/Deturium)<br/> | [<img src="https://avatars.githubusercontent.com/u/29593318?v=4" width="100px;"/><br/><sub><b>Yanyan-Wang</b></sub>](https://github.com/Yanyan-Wang)<br/> |
-| [<img src="https://avatars.githubusercontent.com/u/42212176?v=4" width="100px;"/><br/><sub><b>yiiiiiiqianyao</b></sub>](https://github.com/yiiiiiiqianyao)<br/> | [<img src="https://avatars.githubusercontent.com/u/37040897?v=4" width="100px;"/><br/><sub><b>moayuisuda</b></sub>](https://github.com/moayuisuda)<br/> | [<img src="https://avatars.githubusercontent.com/u/8325822?v=4" width="100px;"/><br/><sub><b>elaine1234</b></sub>](https://github.com/elaine1234)<br/> | [<img src="https://avatars.githubusercontent.com/u/15213473?v=4" width="100px;"/><br/><sub><b>mxz96102</b></sub>](https://github.com/mxz96102)<br/> | [<img src="https://avatars.githubusercontent.com/u/12654153?v=4" width="100px;"/><br/><sub><b>DrugsZ</b></sub>](https://github.com/DrugsZ)<br/> | [<img src="https://avatars.githubusercontent.com/u/9443867?v=4" width="100px;"/><br/><sub><b>baizn</b></sub>](https://github.com/baizn)<br/> |
-| [<img src="https://avatars.githubusercontent.com/u/10277628?v=4" width="100px;"/><br/><sub><b>terence55</b></sub>](https://github.com/terence55)<br/> | [<img src="https://avatars.githubusercontent.com/u/56076317?v=4" width="100px;"/><br/><sub><b>tyr1dev</b></sub>](https://github.com/tyr1dev)<br/> | [<img src="https://avatars.githubusercontent.com/u/2281857?v=4" width="100px;"/><br/><sub><b>budlion</b></sub>](https://github.com/budlion)<br/> | [<img src="https://avatars.githubusercontent.com/u/7278711?v=4" width="100px;"/><br/><sub><b>luoxupan</b></sub>](https://github.com/luoxupan)<br/> | [<img src="https://avatars.githubusercontent.com/u/54543761?v=4" width="100px;"/><br/><sub><b>ikxin</b></sub>](https://github.com/ikxin)<br/> | [<img src="https://avatars.githubusercontent.com/u/6812138?v=4" width="100px;"/><br/><sub><b>Leannechn</b></sub>](https://github.com/Leannechn)<br/> |
+Which gives us [this](./deobfVersions/ems2.js#L1798)
 
-[<img src="https://avatars.githubusercontent.com/u/10683193?v=4" width="100px;"/><br/><sub><b>dev-itsheng</b></sub>](https://github.com/dev-itsheng)<br/>
+The Virtual Machine part of the script, specifically when executing the bytecode
+is a nested if else statement as seen [here](./deobfVersions/ems2.js#L2235)
 
-This project follows the git-contributor [spec](https://github.com/xudafeng/git-contributor), auto updated at `Wed Jun 21 2023 13:21:24 GMT+0800`.
+It is actually just a normal switch case but has been disguised pretty well. After manually
+doing some of the cases, AI was able to help me out and do the rest. Which gave me [this](./handleBytecode.js), 
+which looks pretty standard for a bytecode VM.
 
-<!-- GITCONTRIBUTOR_END -->
+When debugging the Virtual Machine later and seeing which functions it uses
+I was able to tell what it's doing and changed some of var names.
+
+After all of this and a few more small obfuscation techniques
+[here](./latestDeobf.js) is the latest version of the file.
+
+---
+
+## Decrypting Bytecode
+
+With the file fully deobfuscated, figuring out the functionality was much easier,
+I easily found how the VM was being initiated [here](./latestDeobf.js#L3041).
+
+The bytecode is stored as a long string that's all been XOR'ed with a key that
+lies within the string.
+
+```js
+// Line 3046 of latestDeobf.js
+// Getting XOR key
+for (var t = atob(payload), r = 0, n = 4; n < 8; ++n) r += t.charCodeAt(n);
+
+// Decryping bytecode
+unZip(Uint8Array.from(t.slice(8), XOR, r % 256), {  i: 2 }, t && t.out, t && t.dictionary),
+
+// Extracting strings, functions and metadata for each function
+for (var n = leb128(t), o = 0; o < n; ++o) strings.push(Ab27(t)); 
+i = leb128(t);
+for (o = 0; o < i; ++o) {
+  for (var argsLength = leb128(t), isStrictMode = Boolean(leb128(t)), exceptionHandlers = new Array(), p = leb128(t), m = 0; m < p; ++m)    exceptionHandlers.push([leb128(t), leb128(t), leb128(t), leb128(t)]);
+  for (var instructions = new Array(), h = leb128(t), v = 0; v < h; ++v) instructions.push(leb128(t));
+  instructionSets.push([instructions, argsLength, isStrictMode, exceptionHandlers]);
+}
+```
+
+NOTE: The string was gZip-ed and each value was leb128 encoded both for compression
+
+
+---
+
+## Virtual Machine decompiling
+
+TikTok is using a full-fledged bytecode VM, if you browse through [it](vm.js), it supports
+scopes, nested functions and exception handling. This isn't a typical VM and shows that
+it is definitely sophiscated.
+
+To be able to write a form of decompilation I simply went through each of the cases 
+and wrote appropriate code for each one, and any case that jumps to another position 
+for loops like this: 
+
+```js
+case 2:
+    var a = instructions[index++];
+    stack[pointer] ? --pointer : index += a;
+    break;
+```
+
+I would simply stop it from doing so:
+```js
+case 2:
+    var a = instructions[index++];
+    //stack[pointer] ? --pointer : index += a;
+
+    addCode(`// if (!v${pointer}) skip ${a} to ${index + a}`, byteCodePos)
+    break;
+```
+
+After doing this for all the cases I dumped each file [here](./decompiler/functions/).
+It's not completely readable but you should be able to make out a general idea
+of what each function is doing, for example [VM223](./decompiler/functions/VM223.js) which is
+generating random characters.
+
+---
+
+## Debugging
+
+As this is a Javascript file executed on the web, it is actually possible to replace
+the normal `webmssdk.js` with the deobfuscated file and use TikTok normally.
+
+This can be achieved by using two browser extensions known as [Tampermonkey](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=en-GB) for executing
+custom code and [CSP](https://chromewebstore.google.com/detail/disable-content-security/ieelmcmcagommplceebfedjlakkhpden?hl=en-GB&pli=1) to disable CSP so I can fetch files from blocked origins. This is so I
+can put `latestDeobf.js` in my own file server and have it be fetched each time, this is so I can easily
+edit the file and let the changes take effect each time I refresh. This makes it much easier to bebug
+when reversing functions.
+
+The script can be found [here](./injector.js)
+
+---
+
+## Requests
+
+Now that we have deobfuscated the file and decompiled the VM we can 
+start to reverse any function we want and figure out what it's doing.
+
+When you make a request to the server it usually consists of 3 additional headers. 
+
+| Header         |  Description |    
+|----------------|-------------|                              
+| `msToken`      |  Sent by the server and reissued on each request. |
+| `X-Bogus`      |  Generated by webmssdk.js based on request. |
+| `_signature`   |  Generated by webmssdk.js based on request. |
+
+When making a request that doesn't require authentication like querying a user. Only `X-Bogus` is 
+needed to be generated which can be done using `window.frontierSign`. `_signature` isn't needed
+and any `msToken` can be used.
+
+This popular [API](https://github.com/davidteather/TikTok-Api) let's you make those requests.
+It uses a webdriver library called [playwright](https://playwright.dev/python/docs/api/class-playwright), that simply sets up a browser instance, so it can easily call `window.frontierSign`.
+
+When it comes to making authentication-based requests like posting a comment, `_signature` is needed
+and isn't exposed to `window`.
+
+---
+
+## Signer
+
+The inital function call for each request is [VM86](./decompiler/functions/VM86.js) which then calls
+
+[VM113](./decompiler/functions/VM113.js) for `X-bogus`
+
+[VM189](./decompiler/functions/VM189.js) for `_signature`
+
+
+I was able to write [signer](./decompiler/signer.js) which
+succesfully signs URL's.
+
+Here's a demo of posting a comment and checking it using a 
+private browser to ensure it's successful.
+
+https://github.com/user-attachments/assets/746aa1a1-d171-487a-819b-5b0ca1894c47
+
+
+NOTE: There are also some bot protection methods such as mouse tracking ([VM120](./decompiler/functions/VM120.js))
+and environment checking ([VM265](./decompiler/functions/VM265.js)) within [VM86](./decompiler/functions/VM86.js), but it is a completely client-sided check and doesn't communicate
+with the server about, so it can be ignored when generating the signatures.
+
+---
+
+## Extra info
+- **Note:** The TikTok VM is constantly changing with new releases. There's a high chance the main algorithms will change and decompilation of the new VM is needed.
+
+
+
